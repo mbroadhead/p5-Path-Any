@@ -1,0 +1,48 @@
+# Perl build artifacts
+blib/
+_build/
+Build
+Build.bat
+MYMETA.json
+MYMETA.yml
+META.json
+META.yml
+Makefile
+pm_to_blib
+*.o
+*.bs
+
+# CPAN / cpanm
+local/
+.cpanm/
+
+# Test coverage
+cover_db/
+*.gcov
+*.gcda
+*.gcno
+
+# Dist::Zilla
+.build/
+
+# Editor temporaries
+*.swp
+*.swo
+*~
+.#*
+\#*\#
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Claude Code
+.claude/
+
+# Docker volumes / local state
+docker-compose.override.yml
+
+# SFTP test keys (generated at test time)
+xt/fixtures/sftp/test_key
+xt/fixtures/sftp/test_key.pub

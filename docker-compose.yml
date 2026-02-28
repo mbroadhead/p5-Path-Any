@@ -1,0 +1,39 @@
+services:
+  sftp:
+    image: atmoz/sftp:latest
+    ports:
+      - "2222:22"
+    command: "testuser::1001::upload"
+    volumes:
+      - ./xt/fixtures/sftp/authorized_keys:/home/testuser/.ssh/authorized_keys:ro
+    healthcheck:
+      test: ["CMD-SHELL", "ssh-keyscan -p 22 localhost >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+
+  s3:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    command: server /data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      s3:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "mc alias set local http://s3:9000 minioadmin minioadmin123 &&
+                  mc mb --ignore-existing local/path-any-test; exit 0"
+    restart: "no"
