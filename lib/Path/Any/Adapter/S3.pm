@@ -470,27 +470,38 @@ sub children {
         my $key = $self->_key($path);
         $key .= '/' unless $key =~ m{/$};
 
+        # Use flat listing (no Delimiter) to avoid relying on CommonPrefixes,
+        # which some Paws versions or S3-compatible stores may not parse correctly.
         my $resp = $self->_s3->ListObjectsV2(
-            Bucket    => $self->{bucket},
-            Prefix    => $key,
-            Delimiter => '/',
+            Bucket => $self->{bucket},
+            Prefix => $key,
         );
 
+        my %seen_dirs;
         my @children;
-
-        for my $prefix ( @{ $resp->CommonPrefixes // [] } ) {
-            my $p     = $prefix->Prefix;
-            my $cpath = $self->_path_from_key($p);
-            require Path::Any;
-            push @children, Path::Any->new($cpath);
-        }
 
         for my $item ( @{ $resp->Contents // [] } ) {
             my $k = $item->Key;
-            next if $k eq $key;    # skip the directory marker
-            my $cpath = $self->_path_from_key($k);
-            require Path::Any;
-            push @children, Path::Any->new($cpath);
+            next if $k eq $key;    # skip the directory marker itself
+
+            # Get relative path after the prefix
+            ( my $rel = $k ) =~ s{^\Q$key\E}{};
+
+            if ( $rel =~ m{^([^/]+)/} ) {
+                # Object lives in a subdirectory; emit the subdir once
+                my $subdir     = $1;
+                next if $seen_dirs{$subdir}++;
+                my $subdir_key = $key . $subdir . '/';
+                my $cpath      = $self->_path_from_key($subdir_key);
+                require Path::Any;
+                push @children, Path::Any->new($cpath);
+            }
+            else {
+                # Direct file child
+                my $cpath = $self->_path_from_key($k);
+                require Path::Any;
+                push @children, Path::Any->new($cpath);
+            }
         }
 
         return @children;
@@ -509,10 +520,11 @@ sub iterator {
 # Capability
 # ---------------------------------------------------------------------------
 
-sub can_atomic_write { 0 }
-sub can_symlink      { 0 }
-sub supports_chmod   { 0 }
-sub adapter_name     { 'S3' }
+sub can_atomic_write     { 0 }
+sub can_symlink          { 0 }
+sub supports_chmod       { 0 }
+sub has_real_directories { 0 }
+sub adapter_name         { 'S3' }
 
 # ===========================================================================
 # Path::Any::S3Handle — tied filehandle for buffered writes to S3

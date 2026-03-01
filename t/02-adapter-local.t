@@ -267,6 +267,43 @@ SKIP: {
 }
 
 # ---------------------------------------------------------------------------
+# mirror
+# ---------------------------------------------------------------------------
+
+{
+    my $src = td('mirror_src');
+    $src->mkdir;
+    td('mirror_src', 'a.txt')->spew('file a');
+    td('mirror_src', 'b.txt')->spew('file b');
+    my $sub = td('mirror_src', 'sub');
+    $sub->mkdir;
+    td('mirror_src', 'sub', 'c.txt')->spew('file c');
+
+    my $dest = td('mirror_dest');
+    $src->mirror($dest);
+
+    ok($dest->is_dir,                                   'mirror creates dest dir');
+    is(td('mirror_dest', 'a.txt')->slurp, 'file a',    'mirror copies a.txt');
+    is(td('mirror_dest', 'b.txt')->slurp, 'file b',    'mirror copies b.txt');
+    ok(td('mirror_dest', 'sub')->is_dir,                'mirror creates subdirectory');
+    is(td('mirror_dest', 'sub', 'c.txt')->slurp, 'file c', 'mirror copies nested file');
+}
+
+{
+    my $src = td('mirror_file_src.txt');
+    $src->spew("single file\n");
+    my $dest = td('mirror_file_dest.txt');
+    $src->mirror($dest);
+    is($dest->slurp, "single file\n", 'mirror works on a single file');
+}
+
+{
+    my $err = exception { td('mirror_nonexistent')->mirror(td('mirror_out')) };
+    ok(defined $err, 'mirror on nonexistent source throws');
+    isa_ok($err, 'Path::Any::Error') if ref $err;
+}
+
+# ---------------------------------------------------------------------------
 # Error handling: slurp non-existent file throws Path::Any::Error
 # ---------------------------------------------------------------------------
 

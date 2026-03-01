@@ -6,6 +6,7 @@ use Carp qw(croak);
 use Scalar::Util qw(blessed);
 use File::Spec ();
 use Path::Any::Manager ();
+use Path::Any::Error ();
 
 our $VERSION = '0.001';
 
@@ -190,11 +191,46 @@ for my $method (qw(
 # Capability delegation
 # ---------------------------------------------------------------------------
 
-sub can_atomic_write { $_[0]->[ADAPTER]->can_atomic_write }
-sub can_symlink      { $_[0]->[ADAPTER]->can_symlink      }
-sub supports_chmod   { $_[0]->[ADAPTER]->supports_chmod   }
-sub adapter_name     { $_[0]->[ADAPTER]->adapter_name     }
-sub adapter          { $_[0]->[ADAPTER]                   }
+sub can_atomic_write     { $_[0]->[ADAPTER]->can_atomic_write     }
+sub can_symlink          { $_[0]->[ADAPTER]->can_symlink          }
+sub supports_chmod       { $_[0]->[ADAPTER]->supports_chmod       }
+sub has_real_directories { $_[0]->[ADAPTER]->has_real_directories }
+sub adapter_name         { $_[0]->[ADAPTER]->adapter_name         }
+sub adapter              { $_[0]->[ADAPTER]                       }
+
+# ---------------------------------------------------------------------------
+# Higher-level cross-adapter operations
+# ---------------------------------------------------------------------------
+
+sub mirror {
+    my ( $self, $dest ) = @_;
+    $dest = Path::Any->new("$dest")
+        unless blessed($dest) && $dest->isa('Path::Any');
+    _mirror_recursive( $self, $dest );
+    return $dest;
+}
+
+sub _mirror_recursive {
+    my ( $src, $dest ) = @_;
+    if ( $src->is_dir ) {
+        $dest->mkdir if $dest->has_real_directories;
+        for my $child ( $src->children ) {
+            my $child_obj = Path::Any->new("$child");
+            _mirror_recursive( $child_obj, $dest->child( $child_obj->basename ) );
+        }
+    }
+    elsif ( $src->is_file ) {
+        $dest->parent->mkdir if $dest->has_real_directories;
+        $dest->spew_raw( $src->slurp_raw );
+    }
+    else {
+        Path::Any::Error->throw(
+            op   => 'mirror',
+            file => "$src",
+            err  => 'source does not exist or is not a file or directory',
+        );
+    }
+}
 
 1;
 

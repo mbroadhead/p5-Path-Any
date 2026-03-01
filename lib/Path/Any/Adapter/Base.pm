@@ -44,10 +44,11 @@ sub append_utf8 { my ($self,$path,$data,@a) = @_; $self->append($path, $data, {b
 # Capability introspection
 # ---------------------------------------------------------------------------
 
-sub can_atomic_write { 0 }
-sub can_symlink      { 0 }
-sub supports_chmod   { 1 }
-sub adapter_name     { ref $_[0] }
+sub can_atomic_write     { 0 }
+sub can_symlink          { 0 }
+sub supports_chmod       { 1 }
+sub has_real_directories { 1 }
+sub adapter_name         { ref $_[0] }
 
 # ---------------------------------------------------------------------------
 # Constructor

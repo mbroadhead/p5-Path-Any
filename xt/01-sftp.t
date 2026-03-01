@@ -237,5 +237,31 @@ isa_ok( $err, 'Path::Any::Error', 'slurp on missing file throws Path::Any::Error
 is( ref($err) ? $err->op      : '', 'slurp', 'error op is slurp' );
 is( ref($err) ? $err->adapter : '', 'SFTP',  'error adapter is SFTP' );
 
+# ---------------------------------------------------------------------------
+# 27-32. mirror — directory tree
+# ---------------------------------------------------------------------------
+
+rp('mirror_src')->mkdir;
+rp('mirror_src/a.txt')->spew('file a');
+rp('mirror_src/b.txt')->spew('file b');
+rp('mirror_src/sub')->mkdir;
+rp('mirror_src/sub/c.txt')->spew('file c');
+
+rp('mirror_src')->mirror( rp('mirror_dest') );
+
+ok( rp('mirror_dest')->is_dir,                              'mirror: dest dir created' );
+is( rp('mirror_dest/a.txt')->slurp,     'file a',           'mirror: a.txt copied' );
+is( rp('mirror_dest/b.txt')->slurp,     'file b',           'mirror: b.txt copied' );
+ok( rp('mirror_dest/sub')->is_dir,                          'mirror: subdirectory created' );
+is( rp('mirror_dest/sub/c.txt')->slurp, 'file c',           'mirror: nested file copied' );
+
+# ---------------------------------------------------------------------------
+# 33. mirror — single file
+# ---------------------------------------------------------------------------
+
+rp('mirror_file_src.txt')->spew("single file\n");
+rp('mirror_file_src.txt')->mirror( rp('mirror_file_dest.txt') );
+is( rp('mirror_file_dest.txt')->slurp, "single file\n", 'mirror: single file copied' );
+
 # DESTROY on $docker will call stop() automatically
 done_testing;
