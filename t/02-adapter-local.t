@@ -304,6 +304,74 @@ SKIP: {
 }
 
 # ---------------------------------------------------------------------------
+# mirror compare => 'size'
+# ---------------------------------------------------------------------------
+
+{
+    my $src = td('cmp_size_src');
+    $src->mkdir;
+    td('cmp_size_src', 'same.txt')->spew('identical content');
+    td('cmp_size_src', 'diff.txt')->spew('original');
+
+    my $dest = td('cmp_size_dest');
+    $src->mirror($dest);
+
+    # Pre-populate dest: same.txt identical, diff.txt has shorter content
+    td('cmp_size_dest', 'same.txt')->spew('identical content');
+    td('cmp_size_dest', 'diff.txt')->spew('x');  # 1 byte vs 8 bytes in src
+
+    $src->mirror($dest, compare => 'size');
+
+    is( td('cmp_size_dest', 'same.txt')->slurp, 'identical content',
+        'compare=size: identical file left as-is' );
+    is( td('cmp_size_dest', 'diff.txt')->slurp, 'original',
+        'compare=size: different-size file overwritten' );
+}
+
+# ---------------------------------------------------------------------------
+# mirror compare => 'size+digest'
+# ---------------------------------------------------------------------------
+
+{
+    my $md5_ok = eval { require Digest::MD5; 1 };
+    SKIP: {
+        skip 'Digest::MD5 not available', 4 unless $md5_ok;
+
+        my $src = td('cmp_digest_src');
+        $src->mkdir;
+        td('cmp_digest_src', 'same.txt')->spew('hello world');
+        # same length as 'hello world' (11 bytes) but different content
+        td('cmp_digest_src', 'samesize.txt')->spew('hello world');
+
+        my $dest = td('cmp_digest_dest');
+        $src->mirror($dest);
+
+        # Make dest identical for same.txt, same-size-but-different for samesize.txt
+        td('cmp_digest_dest', 'same.txt')->spew('hello world');
+        td('cmp_digest_dest', 'samesize.txt')->spew('dlrow olleh');
+
+        $src->mirror($dest, compare => 'size+digest');
+
+        is( td('cmp_digest_dest', 'same.txt')->slurp, 'hello world',
+            'compare=size+digest: identical content left as-is' );
+        is( td('cmp_digest_dest', 'samesize.txt')->slurp, 'hello world',
+            'compare=size+digest: same-size but different content overwritten' );
+
+        # Also verify that compare=size would NOT catch the same-size difference
+        td('cmp_digest_dest', 'samesize.txt')->spew('dlrow olleh');
+        $src->mirror($dest, compare => 'size');
+        is( td('cmp_digest_dest', 'samesize.txt')->slurp, 'dlrow olleh',
+            'compare=size: same-size file skipped even with different content' );
+
+        # Non-existent dest file is always copied
+        td('cmp_digest_dest', 'same.txt')->remove;
+        $src->mirror($dest, compare => 'size+digest');
+        is( td('cmp_digest_dest', 'same.txt')->slurp, 'hello world',
+            'compare=size+digest: missing dest file is copied' );
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Error handling: slurp non-existent file throws Path::Any::Error
 # ---------------------------------------------------------------------------
 

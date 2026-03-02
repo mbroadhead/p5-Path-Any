@@ -203,25 +203,27 @@ sub adapter              { $_[0]->[ADAPTER]                       }
 # ---------------------------------------------------------------------------
 
 sub mirror {
-    my ( $self, $dest ) = @_;
+    my ( $self, $dest, %opts ) = @_;
     $dest = Path::Any->new("$dest")
         unless blessed($dest) && $dest->isa('Path::Any');
-    _mirror_recursive( $self, $dest );
+    _mirror_recursive( $self, $dest, \%opts );
     return $dest;
 }
 
 sub _mirror_recursive {
-    my ( $src, $dest ) = @_;
+    my ( $src, $dest, $opts ) = @_;
     if ( $src->is_dir ) {
         $dest->mkdir if $dest->has_real_directories;
         for my $child ( $src->children ) {
             my $child_obj = Path::Any->new("$child");
-            _mirror_recursive( $child_obj, $dest->child( $child_obj->basename ) );
+            _mirror_recursive( $child_obj, $dest->child( $child_obj->basename ), $opts );
         }
     }
     elsif ( $src->is_file ) {
-        $dest->parent->mkdir if $dest->has_real_directories;
-        $dest->spew_raw( $src->slurp_raw );
+        unless ( _mirror_skip( $src, $dest, $opts ) ) {
+            $dest->parent->mkdir if $dest->has_real_directories;
+            $dest->spew_raw( $src->slurp_raw );
+        }
     }
     else {
         Path::Any::Error->throw(
@@ -230,6 +232,23 @@ sub _mirror_recursive {
             err  => 'source does not exist or is not a file or directory',
         );
     }
+}
+
+sub _mirror_skip {
+    my ( $src, $dest, $opts ) = @_;
+    my $compare = $opts->{compare} // '';
+    return 0 unless $compare;
+    return 0 unless $dest->exists;
+
+    my $src_size  = $src->size;
+    my $dest_size = $dest->size;
+    return 0 if !defined $src_size || !defined $dest_size;
+    return 0 if $src_size != $dest_size;
+
+    return 1 if $compare eq 'size';
+
+    # size+digest: sizes match, verify content
+    return $src->digest('MD5') eq $dest->digest('MD5');
 }
 
 1;
