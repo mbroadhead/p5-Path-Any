@@ -1,0 +1,8 @@
+Revision history for Path-Any
+
+0.001     2025-03-05
+          - Initial release.
+          - Path::Tiny-compatible API with pluggable adapter system.
+          - Adapters: Local, SFTP (Net::SFTP::Foreign), S3 (Paws), MultiPlex, Null.
+          - Adapter-scoped path routing via Path::Any::Adapter.
+          - mirror() with optional size/digest skipping.
