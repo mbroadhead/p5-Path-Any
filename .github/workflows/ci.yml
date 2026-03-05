@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    name: Perl ${{ matrix.perl }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        perl:
+          - "5.38"
+          - "5.36"
+          - "5.32"
+          - "5.28"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Perl ${{ matrix.perl }}
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+
+      - name: Install Dist::Zilla
+        run: cpanm --notest Dist::Zilla
+
+      - name: Install author deps (dzil plugins)
+        run: dzil authordeps --missing | cpanm --notest
+
+      - name: Install dist deps
+        run: dzil listdeps --missing | cpanm --notest
+
+      - name: Run tests
+        run: dzil test --no-author

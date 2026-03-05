@@ -1,0 +1,39 @@
+name: Release to PAUSE
+
+on:
+  push:
+    tags:
+      - "v*"   # trigger on tags like v0.001, v1.0.0
+
+jobs:
+  release:
+    name: Upload to PAUSE
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: "5.38"
+
+      - name: Install Dist::Zilla
+        run: cpanm --notest Dist::Zilla
+
+      - name: Install author deps (dzil plugins)
+        run: dzil authordeps --missing | cpanm --notest
+
+      - name: Install dist deps
+        run: dzil listdeps --missing | cpanm --notest
+
+      - name: Write ~/.pause credentials
+        run: |
+          cat > ~/.pause <<EOF
+          user     ${{ secrets.PAUSE_USER }}
+          password ${{ secrets.PAUSE_PASSWORD }}
+          EOF
+          chmod 600 ~/.pause
+
+      - name: Release
+        run: dzil release
